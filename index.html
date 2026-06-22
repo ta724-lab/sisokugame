@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>正負の数・四則演算RPG（GitHubデプロイ対応版）</title>
+    <title>正負の数・四則演算RPG（オートセーブ完全対応版）</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -794,7 +794,7 @@
         </div>
 
         <div class="save-code-area">
-            <h3>💾 セーブコード</h3>
+            <h3>💾 セーブコード (別PC等への引越し用)</h3>
             <div class="save-input-group">
                 <input type="text" id="save-code-input" placeholder="セーブコードの保存・読み込み">
                 <button class="btn-save-action" onclick="exportSaveCode()">発行</button>
@@ -962,7 +962,7 @@
     ];
     let ownedItems = [];
 
-    const monstersNormal = ["💧", "👻", "👹", " Foxes ", "🐉"];
+    const monstersNormal = ["💧", "👻", "👹", "🦊", "🐉"];
     const monstersHard = ["💀", "🔥", "👁️", "⚡", "😈"];
     const monstersSecret = ["👹", "👺", "🐉", "🔥", "🌋", "⚡", "🔮", "🩸", "🔱", "👿"]; 
     const monstersSpeed = ["⚡[マッハ・コア]", "🐆[シャドウ・チーター]", "🦅[ソニック・ホーク]", "🌀[ハリケーン・アイ]", "⚡[魔王機兵マッハ]"];
@@ -1004,7 +1004,7 @@
             arrow.innerText = "▲ 閉じる";
         } else {
             bodyContent.classList.add('collapsed');
-            arrow.innerText = "▼ 開く";
+            arrow.innerText = "▼ 開く/閉じる";
         }
     }
 
@@ -1070,6 +1070,7 @@
         closeNicknameModal(); updateHomeStatus(); saveToLocalStorage();
     }
 
+    // ブラウザに自動でセーブデータを書き込む
     function saveToLocalStorage() {
         const gameData = {
             nickname: nickname, coins: coins, maxHp: maxHp,
@@ -1083,6 +1084,7 @@
         localStorage.setItem("seifu_rpg_save_v50", JSON.stringify(gameData));
     }
 
+    // ブラウザからセーブデータを自動で復元する
     function loadLocalStorageData() {
         const saved = localStorage.getItem("seifu_rpg_save_v50");
         if (saved) {
@@ -1105,7 +1107,7 @@
         const code = btoa(unescape(encodeURIComponent(JSON.stringify(gameData))));
         const inputField = document.getElementById("save-code-input");
         inputField.value = code; inputField.select();
-        document.getElementById("home-msg").innerText = "💾 セーブコードを発行しました！";
+        document.getElementById("home-msg").innerText = "💾 引越し用セーブコードを発行しました！";
     }
 
     function importSaveCode() {
@@ -1147,7 +1149,7 @@
     }
 
     function resetGameData() {
-        if (confirm("すべてのデータを消去して最初からやり直しますか？")) {
+        if (confirm("すべてのデータを消去して最初からやり直しますか？\n(ブラウザの自動セーブも消去されます)")) {
             localStorage.removeItem("seifu_rpg_save_v50");
             clearAllFlagsAndItems(); stopTimer();
             document.getElementById("gacha-log-container").style.display = "none";
@@ -1794,7 +1796,7 @@
         document.getElementById("btn-0").parentNode.style.display = "grid";
         document.getElementById("home-msg").innerText = ""; 
         document.getElementById("gacha-log-container").style.display = "none";
-        updateHomeStatus(); saveToLocalStorage(); 
+        updateHomeStatus(); saveToLocalStorage(); // リザルト決定時もオートセーブ
     }
 </script>
 
