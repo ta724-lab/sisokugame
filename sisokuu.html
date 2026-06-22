@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正負の数・四則演算RPG（神速の試練イベント実装版）</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+        .game-container {
+            background-color: #16213e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 480px;
+            text-align: center;
+            border: 2px solid #0f3460;
+            position: relative;
+        }
+        h1 {
+            font-size: 26px;
+            color: #e94560;
+            margin-top: 0;
+            letter-spacing: 1px;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .monster-area {
+            background-color: #0f3460;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+        /* 特殊エネミー用の背景スタイル */
+        .monster-area.elite-bg {
+            background-color: #4a0e17;
+            border: 2px solid #e94560;
+        }
+        .monster-area.shadow-bg {
+            background: linear-gradient(145deg, #0d0d1a, #1a1a2e);
+            border: 2px dashed #555555;
+            animation: shadow-pulse 2s infinite alternate;
+        }
+        .monster-area.boss-bg {
+            background: linear-gradient(145deg, #2d004d, #1a0033);
+            border: 2px solid #a124ff;
+            animation: boss-glow 1.5s infinite alternate;
+        }
+        /* イベント・覚醒モード用の背景 */
+        .monster-area.speed-bg {
+            background: linear-gradient(145deg, #004d4d, #001a1a);
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 15px #00ffff;
+        }
+        .monster-area.awakening-bg {
+            background: linear-gradient(145deg, #ffaa00, #4d3300);
+            border: 2px solid #ffaa00;
+            animation: awake-glow 0.5s infinite alternate;
+        }
+        @keyframes awake-glow {
+            from { box-shadow: 0 0 5px #ffaa00; }
+            to { box-shadow: 0 0 25px #ffcc00; }
+        }
+        @keyframes boss-glow {
+            from { box-shadow: 0 0 5px #a124ff; }
+            to { box-shadow: 0 0 20px #ff007f; }
+        }
+        @keyframes shadow-pulse {
+            from { border-color: #333; }
+            to { border-color: #777; }
+        }
+        .monster-emoji {
+            font-size: 48px;
+            margin-bottom: 5px;
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+        .question {
+            font-size: 21px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+        
+        .timer-container {
+            width: 100%;
+            background-color: #111625;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            position: relative;
+            height: 20px;
+            border: 1px solid #1f4068;
+        }
+        .timer-bar {
+            height: 100%;
+            width: 100%;
+            background-color: #e94560;
+            transition: width 0.1s linear;
+        }
+        .timer-bar.speed-bar {
+            background-color: #00ffff !important;
+        }
+        .timer-bar.hidden-bar {
+            background-color: #111625 !important;
+        }
+        .timer-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* 覚醒ゲージの見た目 */
+        .gauge-container {
+            width: 100%;
+            background-color: #111625;
+            border-radius: 3px;
+            margin-bottom: 10px;
+            height: 8px;
+            border: 1px solid #333;
+            overflow: hidden;
+            display: none;
+        }
+        .gauge-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff5500, #ffcc00);
+            transition: width 0.3s ease;
+        }
+
+        .choices-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .choice-btn {
+            background-color: #0f3460;
+            color: white;
+            border: 2px solid #1f4068;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .choice-btn:hover:not(:disabled) {
+            background-color: #1f4068;
+            border-color: #e94560;
+        }
+        .choice-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.4;
+            background-color: #111625;
+            border-color: #333;
+            color: #555;
+        }
+
+        .battle-item-container {
+            background-color: #0f3460;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .battle-item-title {
+            font-size: 12px;
+            color: #ffbc00;
+            text-align: left;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .battle-item-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .use-item-btn {
+            background-color: #1f4068;
+            color: white;
+            border: 1px solid #4ecca3;
+            border-radius: 5px;
+            padding: 8px 4px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .use-item-btn:hover:not(:disabled) {
+            background-color: #4ecca3;
+            color: #1a1a2e;
+        }
+        .use-item-btn:disabled {
+            border-color: #444;
+            color: #666;
+            background-color: #111625;
+            cursor: not-allowed;
+        }
+
+        button.action-btn {
+            background-color: #e94560;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button.action-btn:hover { background-color: #ff6b81; }
+        
+        .mode-btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .mode-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        .btn-normal { background-color: #4ecca3; width: 50%; }
+        .btn-normal:hover { background-color: #61f2c2; }
+        .btn-hard { background-color: #e94560; width: 50%; }
+        .btn-hard:hover { background-color: #ff6b81; }
+        
+        .btn-secret {
+            background: linear-gradient(45deg, #7928ca, #ff0000);
+            border: 2px solid #ffbc00;
+            animation: pulse 1.2s infinite alternate;
+        }
+        .btn-event-speed {
+            background: linear-gradient(45deg, #008080, #00ffff);
+            color: #1a1a2e;
+            border: 2px solid #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0,255,255,0.5);
+        }
+        .btn-event-speed:hover {
+            background: linear-gradient(45deg, #00ffff, #ffffff);
+            box-shadow: 0 0 20px rgba(0,255,255,0.8);
+        }
+
+        @keyframes pulse {
+            from { box-shadow: 0 0 5px #7928ca; }
+            to { box-shadow: 0 0 25px #ff0000; }
+        }
+
+        .result-message {
+            margin-top: 15px;
+            font-size: 16px;
+            min-height: 24px;
+            font-weight: bold;
+            white-space: pre-line;
+        }
+        .success { color: #4ecca3; }
+        .error { color: #ff4a4a; }
+
+        .hub-tabs {
+            display: flex;
+            gap: 5px;
+            margin: 15px 0 0 0;
+        }
+        .tab-btn {
+            flex-grow: 1;
+            background-color: #0f3460;
+            color: #aaa;
+            border: 2px solid #1f4068;
+            border-bottom: none;
+            padding: 10px 5px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: #233154;
+            color: #fff;
+            border-color: #4ecca3;
+            position: relative;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; left: 0; width: 100%; height: 2px;
+            background-color: #233154;
+        }
+
+        .gacha-shop-container {
+            background: #233154;
+            border: 2px solid #1f4068;
+            border-top: 2px solid #4ecca3;
+            border-radius: 0 0 10px 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .gacha-box {
+            background: linear-gradient(145deg, #1f4068, #16213e);
+            border: 2px dashed #ffbc00;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            text-align: left;
+        }
+        .dark-box {
+            background: linear-gradient(145deg, #2d0a15, #150007);
+            border: 2px dashed #ff4a4a;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .gacha-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .gacha-ceiling-info {
+            font-size: 11px;
+            color: #ffbc00;
+            background-color: #111625;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+            display: inline-block;
+            font-weight: bold;
+            border: 1px solid #1f4068;
+        }
+        
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #16213e;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #0f3460;
+        }
+        .shop-item:last-child { margin-bottom: 0; }
+        .shop-item-info { text-align: left; font-size: 12px; flex-grow: 1; }
+        .shop-item-name { font-weight: bold; color: #4ecca3; }
+        
+        .shop-action-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-buy { 
+            background-color: #e94560; 
+            font-size: 12px; 
+            padding: 6px 10px; 
+            width: auto; 
+            font-weight: bold; 
+            border-radius: 4px; 
+            border:none; 
+            color:white; 
+            cursor:pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-buy:disabled { background-color: #555; cursor: not-allowed; opacity: 0.4; }
+        .btn-sell {
+            background-color: #4ecca3;
+            color: #1a1a2e;
+        }
+        .btn-sell:hover:not(:disabled) { background-color: #61f2c2; }
+
+        .btn-gacha { background-color: #ffbc00; color: #1a1a2e; flex-grow: 1; text-align: center; font-size: 13px;}
+        .btn-gacha:hover:not(:disabled) { background-color: #ffe066; }
+        .btn-gacha-10 { background-color: #e94560; color: white; }
+        .btn-gacha-10:hover:not(:disabled) { background-color: #ff6b81; }
+        .btn-dark { background: linear-gradient(45deg, #a1001a, #5c000e); color: white; border: 1px solid #ff4a4a; width: 100%; margin-top: 5px; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        .btn-dark:disabled { background: #222; border-color: #444; color: #555; cursor: not-allowed; }
+
+        .gacha-result-log {
+            background: #111625;
+            border: 1px solid #1f4068;
+            border-radius: 5px;
+            padding: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
+            color: #4ecca3;
+            line-height: 1.4;
+        }
+
+        .collection-container {
+            background-color: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .collection-header-toggle {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collection-header-toggle:hover #collection-title-main {
+            color: #ffe066;
+        }
+        .collection-title {
+            margin: 0;
+            font-size: 14px;
+            color: #ffbc00;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .toggle-arrow {
+            font-size: 12px;
+            color: #ffbc00;
+            margin-left: 10px;
+            transition: transform 0.2s;
+        }
+        .collection-body {
+            margin-top: 10px;
+            transition: max-height 0.3s ease-out, opacity 0.2s;
+            overflow: hidden;
+        }
+        .collection-body.collapsed {
+            display: none;
+        }
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+        }
+        .collection-item {
+            background-color: #16213e;
+            border: 1px solid #1f4068;
+            border-radius: 4px;
+            height: 38px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            position: relative;
+            cursor: pointer;
+        }
+        .collection-item.locked {
+            font-size: 12px;
+            color: #444;
+            background-color: #111625;
+            border-style: dashed;
+        }
+        
+        .save-code-area {
+            background-color: #0f3460;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .save-code-area h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #4ecca3;
+        }
+        .save-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        .save-input-group input {
+            flex-grow: 1;
+            background: #16213e;
+            border: 1px solid #1f4068;
+            border-radius: 4px;
+            color: white;
+            padding: 6px;
+            font-size: 12px;
+        }
+        .btn-save-action {
+            background: #4ecca3;
+            color: #1a1a2e;
+            border: none;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-save-action:hover { background-color: #61f2c2; }
+        .btn-save-action btn-load-action { background: #ffbc00; }
+        .btn-load-action:hover { background-color: #ffe066; }
+
+        .btn-reset-data {
+            background: none;
+            border: none;
+            color: #555;
+            font-size: 11px;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-block;
+            width: 100%;
+        }
+        .btn-reset-data:hover { color: #ff4a4a; }
+
+        .nickname-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .nickname-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4ecca3;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .btn-rename {
+            background: #1f4068;
+            border: 1px solid #4ecca3;
+            color: #4ecca3;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-rename:hover {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+
+        .eraser-switch-container {
+            display: inline-flex;
+            align-items: center;
+            background: #111625;
+            border: 1px solid #ff4a4a;
+            border-radius: 20px;
+            padding: 2px 4px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+        .eraser-switch-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .eraser-switch-btn.active-on {
+            background: #ff4a4a;
+            color: #fff;
+            box-shadow: 0 0 5px rgba(255, 74, 74, 0.6);
+        }
+        .eraser-switch-btn.active-on-warn {
+            background: #ffaa00;
+            color: #000;
+            box-shadow: 0 0 5px rgba(255, 170, 0, 0.6);
+        }
+        .eraser-switch-btn.active-off {
+            background: #555;
+            color: #fff;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .nickname-modal {
+            background-color: #16213e;
+            border: 2px solid #e94560;
+            border-radius: 12px;
+            padding: 20px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+            transform: scale(0.9);
+            transition: transform 0.2s ease;
+        }
+        .modal-overlay.active .nickname-modal { transform: scale(1); }
+        .nickname-modal h3 { margin-top: 0; color: #e94560; font-size: 18px; }
+        .nickname-modal input {
+            width: 90%;
+            background: #0f3460;
+            border: 1px solid #1f4068;
+            border-radius: 6px;
+            color: white;
+            padding: 10px;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .nickname-modal input:focus { outline: none; border-color: #e94560; }
+        .modal-btn-group { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn {
+            border: none; padding: 10px 20px; font-size: 14px; font-weight: bold;
+            border-radius: 4px; cursor: pointer; min-width: 80px;
+        }
+        .modal-btn-ok { background-color: #4ecca3; color: #1a1a2e; }
+        .modal-btn-cancel { background-color: #555; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>⚔️ 正負の数 RPG ⚔️</h1>
+    
+    <div id="home-screen">
+        <div class="status-bar" style="margin-bottom: 15px;">
+            <div id="home-coin-display">💰 所持金: 0</div>
+            <div id="home-hp-display">HP: ❤️❤️❤️</div>
+        </div>
+
+        <div class="nickname-area">
+            <span class="nickname-display" id="player-name-display">🛡️ ななしの冒険者</span>
+            <button class="btn-rename" onclick="openNicknameModal()">名前変更</button>
+        </div>
+        <div class="monster-emoji" style="font-size: 24px; margin-bottom: 0;">🏡 冒険者の拠点</div>
+        
+        <div id="time-event-banner" style="font-size: 12px; color: #e94560; font-weight: bold; margin-bottom: 5px; min-height: 15px;"></div>
+        <div id="buff-status-display" style="font-size: 11px; color: #ffbc00; font-weight: bold; margin-bottom: 5px; min-height: 15px;"></div>
+        
+        <div class="hub-tabs">
+            <button class="tab-btn active" id="tab-gacha-btn" onclick="switchHubTab('gacha')">🎰 ガチャ・闇の祭壇</button>
+            <button class="tab-btn" id="tab-shop-btn" onclick="switchHubTab('shop')">🛒 道具屋ショップ</button>
+        </div>
+
+        <div class="gacha-shop-container">
+            <div id="hub-gacha-content">
+                <div class="gacha-box">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name" style="color: #ffbc00;">🎰 神秘 of 宝箱ガチャ</span><br>
+                        <span style="font-size: 11px; color: #aaa;">✨ コレクション枠確率: <b>4% </b> の沼を乗り越えろ！</span>
+                    </div>
+                    <div class="gacha-buttons">
+                        <button class="btn-buy btn-gacha" id="draw-gacha-1" onclick="drawGacha(1)">単発 💰15</button>
+                        <button class="btn-buy btn-gacha btn-gacha-10" id="draw-gacha-10" onclick="drawGacha(10)">10連 💰140</button>
+                    </div>
+                    <div class="gacha-ceiling-info" id="gacha-ceiling-display">👑 コレクション確定まで：あと 200 回</div>
+
+                    <div id="gacha-log-container" style="display: none;">
+                        <div class="gacha-result-log" id="gacha-result-log"></div>
+                    </div>
+                </div>
+
+                <div class="dark-box">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name" style="color: #ff4a4a;">🔮 闇の商取引 (命を削る契約)</span><br>
+                        <span style="font-size: 11px; color: #bbb;">⚠️ 代償：<b>💰20コイン</b> ＋ <b>【最大HPが1永久減少】</b><br>見返り：大量の物資を高確率入手！</span>
+                    </div>
+                    <button class="btn-dark" id="dark-trade-btn" onclick="triggerDarkTrade()">契約を交わす (最大HP-1 & 💰-20)</button>
+                </div>
+            </div>
+
+            <div id="hub-shop-content" style="display: none;">
+                <div class="shop-item">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name" style="color: #ffbc00;">🔱 金の鎧（免罪体質）</span><br>
+                        <span style="font-size: 11px; color: #aaa;">効果: 被ダメ時にHPの代わりに<b>💰30消費</b>。<br>※残高不足で被ダメすると鎧崩壊＆<b>HPが2倍減少</b></span>
+                    </div>
+                    <div class="shop-action-group">
+                        <button class="btn-buy" id="buy-goldarmor" onclick="buyGoldArmor()">💰50</button>
+                    </div>
+                </div>
+
+                <div class="shop-item">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">🛡️ 鉄壁の盾</span><br>
+                        <span style="font-size: 11px; color: #aaa;" id="price-shield-text">買う: 💰10 | 売る: 💰5</span>
+                    </div>
+                    <div class="shop-action-group">
+                        <button class="btn-buy" id="buy-shield" onclick="buyItem('shield')">買う</button>
+                        <button class="btn-buy btn-sell" id="sell-shield" onclick="sellItem('shield')">売る</button>
+                    </div>
+                </div>
+                <div class="shop-item">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">🧪 ポーション</span><br>
+                        <span style="font-size: 11px; color: #aaa;" id="price-potion-text">買う: 💰8 | 売る: 💰4</span>
+                    </div>
+                    <div class="shop-action-group">
+                        <button class="btn-buy" id="buy-potion" onclick="buyItem('potion')">買う</button>
+                        <button class="btn-buy btn-sell" id="sell-potion" onclick="sellItem('potion')">売る</button>
+                    </div>
+                </div>
+                <div class="shop-item">
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">💣 選択肢消去の爆弾</span><br>
+                        <span style="font-size: 11px; color: #aaa;" id="price-bomb-text">買う: 💰6 | 売る: 💰3</span>
+                    </div>
+                    <div class="shop-action-group">
+                        <button class="btn-buy" id="buy-bomb" onclick="buyItem('bomb')">買う</button>
+                        <button class="btn-buy btn-sell" id="sell-bomb" onclick="sellItem('bomb')">売る</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p style="font-weight: bold; margin: 10px 0 5px 0; font-size: 15px;">ダンジョンへ出発する：</p>
+        <div class="mode-btn-container" id="mode-select-box">
+            <div class="mode-row">
+                <button class="choice-btn btn-normal" onclick="startGame('normal')">ノーマル（5戦）</button>
+                <button class="choice-btn btn-hard" onclick="startGame('hard')">ハード🔥（5戦）</button>
+            </div>
+            <button class="choice-btn btn-event-speed" id="btn-event-speed" style="display:none;" onclick="startGame('speed')">⚡【時限イベント】神速の試練（5戦）</button>
+            <button class="choice-btn btn-secret" id="btn-secret-boss" style="display:none;" onclick="startGame('secret')">💀 真・極魔王に挑む（極限地獄10戦）</button>
+        </div>
+        <div id="home-msg" class="result-message success" style="margin-top:10px; min-height:18px; font-size:14px;"></div>
+        
+        <div class="collection-container">
+            <div class="collection-header-toggle" onclick="toggleCollectionPanel()">
+                <div class="collection-title">
+                    <div>
+                        <span id="collection-title-main">🏆 コレクション図鑑</span>
+                        <span id="collection-count" style="margin-left: 5px;">0 / 50</span>
+                    </div>
+                    <span id="collection-toggle-arrow" class="toggle-arrow">▼ 開く/閉じる</span>
+                </div>
+            </div>
+            <div class="collection-body" id="collection-body-content">
+                <div class="collection-grid" id="collection-grid"></div>
+            </div>
+        </div>
+
+        <div class="save-code-area">
+            <h3>💾 セーブコード</h3>
+            <div class="save-input-group">
+                <input type="text" id="save-code-input" placeholder="セーブコードの保存・読み込み">
+                <button class="btn-save-action" onclick="exportSaveCode()">発行</button>
+                <button class="btn-save-action btn-load-action" onclick="importSaveCode()">読込</button>
+            </div>
+        </div>
+
+        <button class="btn-reset-data" onclick="resetGameData()">データを消去して最初からやり直す</button>
+    </div>
+
+    <div id="game-screen" style="display: none;">
+        <div class="status-bar">
+            <div id="stage-display">STAGE: 1/5</div>
+            <div id="coin-display">💰: 0</div>
+            <div id="hp-display">HP: ❤️❤️❤️</div>
+        </div>
+        
+        <div class="battle-item-container">
+            <div class="battle-item-title">🎒 所持アイテム（クリックして即時発動）</div>
+            <div class="battle-item-buttons">
+                <button class="use-item-btn" id="use-shield-btn" onclick="useItemInBattle('shield')">🛡️ 盾 (x0)</button>
+                <button class="use-item-btn" id="use-potion-btn" onclick="useItemInBattle('potion')">🧪 回復 (x0)</button>
+                <button class="use-item-btn" id="use-bomb-btn" onclick="useItemInBattle('bomb')">💣 爆弾 (x0)</button>
+            </div>
+        </div>
+
+        <div id="battle-buff-display" style="font-size: 12px; color: #4ecca3; font-weight: bold; text-align: left; margin-bottom: 10px; padding-left: 5px;"></div>
+
+        <div class="gauge-container" id="gauge-container">
+            <div class="gauge-bar" id="gauge-bar"></div>
+        </div>
+
+        <div class="timer-container">
+            <div class="timer-bar" id="timer-bar"></div>
+            <div class="timer-text" id="timer-text">残り時間: 10.0s</div>
+        </div>
+
+        <div id="battle-area">
+            <div class="monster-area" id="monster-box">
+                <div class="monster-emoji" id="monster">👾</div>
+                <div class="question" id="question-text">計算式</div>
+            </div>
+
+            <div class="choices-container">
+                <button class="choice-btn" id="btn-0" onclick="checkAnswer(0)">?</button>
+                <button class="choice-btn" id="btn-1" onclick="checkAnswer(1)">?</button>
+                <button class="choice-btn" id="btn-2" onclick="checkAnswer(2)">?</button>
+                <button class="choice-btn" id="btn-3" onclick="checkAnswer(3)">?</button>
+            </div>
+        </div>
+        
+        <div class="result-message" id="result-text"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="nickname-modal-overlay">
+    <div class="nickname-modal">
+        <h3>📛 ニックネームの変更</h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:10px;">新しい名前を入力してください</p>
+        <input type="text" id="modal-nickname-input" maxlength="12" placeholder="最大12文字">
+        <div class="modal-btn-group">
+            <button class="modal-btn modal-btn-cancel" onclick="closeNicknameModal()">閉じる</button>
+            <button class="modal-btn modal-btn-ok" onclick="submitNicknameModal()">変更する</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stage = 1;
+    let maxStage = 5;
+    let hp = 3;
+    let maxHp = 3; 
+    let coins = 0;
+    let correctAnswer = 0;
+    let gameMode = 'normal'; 
+    let currentChoices = [];
+    let nickname = "ななしの冒険者"; 
+
+    let shieldCount = 0;
+    let potionCount = 0;
+    let bombCount = 0; 
+    let hasGoldArmor = false;
+
+    let isShieldActiveThisTurn = false; 
+    let disabledChoicesThisTurn = []; 
+
+    let timeLeft = 10.0;
+    let currentMaxTime = 10.0; 
+    let timerInterval = null;
+    let isTimerRunning = false;
+
+    let enemyType = 'normal'; 
+    let elitePenaltyType = 0; 
+    let coinMultiplier = 1;
+
+    let hasDoubleCoins = false; 
+    let hasGachaWeapon = false; 
+    let hasExtendedTime = false; 
+    let hasHalvedTime = false; 
+    let hasCheatEraser = false; 
+    let isCheatEraserActive = true; 
+    let eraserJustLost = false; 
+
+    let hasOneHpCurse = false;
+    let isOneHpCurseActive = true;
+
+    // スピードイベント用変数
+    let awakeningGauge = 0; // 0〜100
+    let isAwakeningMode = false;
+    let awakeningTimeLeft = 6; // 覚醒タイムは6秒間固定
+
+    let totalGachaCount = 0; 
+    const ceilingTarget = 200; 
+    
+    const collectionItems = [
+        { id: 0, name: "スライムのフィギュア", emoji: "💧" },
+        { id: 1, name: "ゴブリンの粘土細工", emoji: "👺" },
+        { id: 2, name: "魔王のミニドール", emoji: "👑" },
+        { id: 3, name: "黄金のまねきねこ", emoji: "🐱" },
+        { id: 4, name: "古代の計算機", emoji: "🧮" },
+        { id: 5, name: "ピタゴラス of 直角定規", emoji: "📐" },
+        { id: 6, name: "プラスとマイナスの磁石", emoji: "🧲" },
+        { id: 7, name: "無限 of シンボルリング", emoji: "♾️" },
+        { id: 8, name: "幸運の四つ葉のクローバー", emoji: "🍀" },
+        { id: 9, name: "ブロンズのサイコロ", emoji: "🎲" },
+        { id: 10, name: "シルバーのコンパス", emoji: "🧭" },
+        { id: 11, name: "ゴールドの分度器", emoji: "📐" },
+        { id: 12, name: "ゼロの概念カード", emoji: "🃏" },
+        { id: 13, name: "素数マニアの刻印", emoji: "⚙️" },
+        { id: 14, name: "九九のスクロール", emoji: "📜" },
+        { id: 15, name: "魔力を帯びた数珠", emoji: "📿" },
+        { id: 16, name: "虚数単位「i」の結晶", emoji: "💎" },
+        { id: 17, name: "黄金比のブローチ", emoji: "🔱" },
+        { id: 18, name: "フィボナッチの貝殻", emoji: "🐚" },
+        { id: 19, name: "円周率πのペンデュラム", emoji: "🔮" },
+        { id: 20, name: "正負を反転するレンズ", emoji: "👓" },
+        { id: 21, name: "ガウスの算術勲章", emoji: "🎖️" },
+        { id: 22, name: "未知数「x」の鍵", emoji: "🔑" },
+        { id: 23, name: "因数分解のグリモア", emoji: "📘" },
+        { id: 24, name: "確率論のルーレット", emoji: "🎡" },
+        { id: 25, name: "トポロジーの知恵の輪", emoji: "💍" },
+        { id: 26, name: "メビウスの終わりなき帯", emoji: "🎗️" },
+        { id: 27, name: "フラクタルの幾何学雪", emoji: "❄️" },
+        { id: 28, name: "微分積分の砂時計", emoji: "⏳" },
+        { id: 29, name: "ネイピア数のアンティーク時計", emoji: "🕰️" },
+        { id: 30, name: "行列式のチェス駒", emoji: "♟️" },
+        { id: 31, name: "ベクトルの方位磁針", emoji: "🏹" },
+        { id: 32, name: "統計学の天秤", emoji: "⚖️" },
+        { id: 33, name: "集合論の三重リング", emoji: "⭕" },
+        { id: 34, name: "フェルマーの最終定理の紙片", emoji: "📝" },
+        { id: 35, name: "オイラーの美しき等式ペン", emoji: "✒️" },
+        { id: 36, name: "不完全性定理の壊れた時計", emoji: "⏰" },
+        { id: 37, name: "アインシュタインのチョーク", emoji: "🖍️" },
+        { id: 38, name: "ニュートンの禁断のリンゴ", emoji: "🍎" },
+        { id: 39, name: "パスカルの賭けのコイン", emoji: "🪙" },
+        { id: 40, name: "二進法のデジタル回路", emoji: "💾" },
+        { id: 41, name: "カオスのバタフライエフェクト", emoji: "🦋" },
+        { id: 42, name: "魔王城の座標データ", emoji: "🗺️" },
+        { id: 43, name: "大賢者の製図インク", emoji: "🧪" },
+        { id: 44, name: "次元を超越するサイコロ", emoji: "🧊" },
+        { id: 45, name: "数式を奏でるオルゴール", emoji: "🎵" },
+        { id: 46, name: "絶対値のクリスタルウォール", emoji: "🧱" },
+        { id: 47, name: "不等号のブーメラン", emoji: "🪃" },
+        { id: 48, name: "四則演算のマスタークラウン", emoji: "👑" },
+        { id: 49, name: "❌禁忌 of バグ消しゴム", emoji: "❌" }
+    ];
+    let ownedItems = [];
+
+    const monstersNormal = ["👾", "👻", "👹", "🦊", "🐉"];
+    const monstersHard = ["💀", "🔥", "👁️", "⚡", "😈"];
+    const monstersSecret = ["👹", "👺", "🐉", "🔥", "🌋", "⚡", "🔮", "🩸", "🔱", "👿"]; 
+    const monstersSpeed = ["⚡[マッハ・コア]", "🐆[シャドウ・チーター]", "🦅[ソニック・ホーク]", "🌀[ハリケーン・アイ]", "⚡[魔王機兵マッハ]"];
+    
+    const elitemonsters = ["💀[影の暗殺者]", "🔥[煉獄 of 番犬]", "⚡[魔導甲冑]", "👁️[死を呼ぶ邪眼]"];
+    const shadowmonsters = ["👥[ディープ・シャドウ]", "💨[ステルス・ファントム]", "⬛[未知なるヴォイド]"];
+    const bossmonsters = ["👑[降臨・裏魔王]", "🔮[終焉 of 厄災]"];
+
+    window.onload = function() {
+        loadLocalStorageData();
+        updateHomeStatus();
+        // 拠点画面の時限イベント通知を定期アップデート
+        setInterval(checkTimeEvent, 1000);
+    };
+
+    // 19:00〜20:00の時限イベント判定関数
+    function isEventActive() {
+        const now = new Date();
+        const hour = now.getHours();
+        return (hour === 19); // 19:00:00 〜 19:59:59 の間
+    }
+
+    function checkTimeEvent() {
+        const banner = document.getElementById("time-event-banner");
+        const speedBtn = document.getElementById("btn-event-speed");
+        if (isEventActive()) {
+            banner.innerHTML = "⚡【タイムイベント開催中】「神速の試練」開放＆獲得コイン2倍！⚡";
+            banner.style.color = "#00ffff";
+            speedBtn.style.display = "block";
+        } else {
+            banner.innerHTML = "📅 限定イベント：毎日19:00～20:00「神速の試練＆獲得コイン2倍」";
+            banner.style.color = "#aaa";
+            speedBtn.style.display = "none";
+        }
+    }
+
+    function toggleCollectionPanel() {
+        const bodyContent = document.getElementById('collection-body-content');
+        const arrow = document.getElementById('collection-toggle-arrow');
+        if (bodyContent.classList.contains('collapsed')) {
+            bodyContent.classList.remove('collapsed');
+            arrow.innerText = "▲ 閉じる";
+        } else {
+            bodyContent.classList.add('collapsed');
+            arrow.innerText = "▼ 開く";
+        }
+    }
+
+    function switchHubTab(tabName) {
+        const gachaContent = document.getElementById('hub-gacha-content');
+        const shopContent = document.getElementById('hub-shop-content');
+        const gachaBtn = document.getElementById('tab-gacha-btn');
+        const shopBtn = document.getElementById('tab-shop-btn');
+        if (tabName === 'gacha') {
+            gachaContent.style.display = 'block';
+            shopContent.style.display = 'none';
+            gachaBtn.classList.add('active');
+            shopBtn.classList.remove('active');
+        } else {
+            gachaContent.style.display = 'none';
+            shopContent.style.display = 'block';
+            gachaBtn.classList.remove('active');
+            shopBtn.classList.add('active');
+        }
+    }
+
+    function openNicknameModal() {
+        const overlay = document.getElementById("nickname-modal-overlay");
+        const input = document.getElementById("modal-nickname-input");
+        input.value = nickname; 
+        overlay.classList.add("active");
+        input.focus();
+    }
+
+    function closeNicknameModal() {
+        document.getElementById("nickname-modal-overlay").classList.remove("active");
+    }
+
+    function toggleEraser(status) {
+        isCheatEraserActive = status;
+        const msg = document.getElementById("home-msg");
+        if(isCheatEraserActive) {
+            msg.innerText = "❌ 禁忌の消しゴムを【ON】にしました。（使用時：70%の確率で消滅する呪い付き）";
+        } else {
+            msg.innerText = "🔒 禁忌の消しゴムを【OFF】にしました。";
+        }
+        updateHomeStatus(); saveToLocalStorage();
+    }
+
+    function toggleOneHpCurse(status) {
+        isOneHpCurseActive = status;
+        const msg = document.getElementById("home-msg");
+        if(isOneHpCurseActive) {
+            msg.innerText = "💀 呪いの砂時計を【ON】にしました（ミス時にHPが強制1）";
+        } else {
+            msg.innerText = "🔒 呪いの砂時計を【OFF】にし、封印しました。";
+        }
+        updateHomeStatus(); saveToLocalStorage();
+    }
+
+    function submitNicknameModal() {
+        const input = document.getElementById("modal-nickname-input");
+        let newName = input.value.trim();
+        if (newName.length === 0) { alert("名前を空にすることはできません。"); return; }
+        if (newName.length > 12) { alert("名前は12文字以内で入力してください。"); return; }
+        nickname = newName;
+        document.getElementById("home-msg").innerText = `📛 ニックネームを「${nickname}」に変更しました！`;
+        closeNicknameModal(); updateHomeStatus(); saveToLocalStorage();
+    }
+
+    function saveToLocalStorage() {
+        const gameData = {
+            nickname: nickname, coins: coins, maxHp: maxHp,
+            shieldCount: shieldCount, potionCount: potionCount, bombCount: bombCount, hasGoldArmor: hasGoldArmor,
+            hasDoubleCoins: hasDoubleCoins, hasGachaWeapon: hasGachaWeapon, hasExtendedTime: hasExtendedTime,
+            hasHalvedTime: hasHalvedTime,
+            hasCheatEraser: hasCheatEraser, isCheatEraserActive: isCheatEraserActive,
+            hasOneHpCurse: hasOneHpCurse, isOneHpCurseActive: isOneHpCurseActive, 
+            ownedItems: ownedItems, totalGachaCount: totalGachaCount
+        };
+        localStorage.setItem("seifu_rpg_save_v50", JSON.stringify(gameData));
+    }
+
+    function loadLocalStorageData() {
+        const saved = localStorage.getItem("seifu_rpg_save_v50");
+        if (saved) {
+            try { applyData(JSON.parse(saved)); } catch (e) { console.error(e); }
+        } else {
+            clearAllFlagsAndItems();
+        }
+    }
+
+    function exportSaveCode() {
+        const gameData = {
+            nickname: nickname, coins: coins, maxHp: maxHp,
+            shieldCount: shieldCount, potionCount: potionCount, bombCount: bombCount, hasGoldArmor: hasGoldArmor,
+            hasDoubleCoins: hasDoubleCoins, hasGachaWeapon: hasGachaWeapon, hasExtendedTime: hasExtendedTime,
+            hasHalvedTime: hasHalvedTime,
+            hasCheatEraser: hasCheatEraser, isCheatEraserActive: isCheatEraserActive,
+            hasOneHpCurse: hasOneHpCurse, isOneHpCurseActive: isOneHpCurseActive,
+            ownedItems: ownedItems, totalGachaCount: totalGachaCount
+        };
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(gameData))));
+        const inputField = document.getElementById("save-code-input");
+        inputField.value = code; inputField.select();
+        document.getElementById("home-msg").innerText = "💾 セーブコードを発行しました！";
+    }
+
+    function importSaveCode() {
+        const code = document.getElementById("save-code-input").value.trim();
+        if (!code) return;
+        try {
+            const decodedJson = decodeURIComponent(escape(atob(code)));
+            applyData(JSON.parse(decodedJson)); saveToLocalStorage();
+            document.getElementById("home-msg").innerText = "🔮 データを正常に読み込みました！"; updateHomeStatus();
+        } catch (e) { alert("正しくないコードです"); }
+    }
+
+    function applyData(data) {
+        nickname = data.nickname ?? "ななしの冒険者";
+        coins = data.coins ?? 0;
+        maxHp = data.maxHp ?? 3;
+        shieldCount = data.shieldCount ?? 0;
+        potionCount = data.potionCount ?? 0;
+        bombCount = data.bombCount ?? 0;
+        hasGoldArmor = data.hasGoldArmor ?? false;
+        hasDoubleCoins = data.hasDoubleCoins ?? false;
+        hasGachaWeapon = data.hasGachaWeapon ?? false;
+        hasExtendedTime = data.hasExtendedTime ?? false;
+        hasHalvedTime = data.hasHalvedTime ?? false;
+        hasCheatEraser = data.hasCheatEraser ?? false;
+        isCheatEraserActive = data.isCheatEraserActive ?? true;
+        hasOneHpCurse = data.hasOneHpCurse ?? false;
+        isOneHpCurseActive = data.isOneHpCurseActive ?? true;
+        ownedItems = data.ownedItems ?? []; 
+        totalGachaCount = data.totalGachaCount ?? 0;
+        hp = maxHp; 
+    }
+
+    function clearAllFlagsAndItems() {
+        nickname = "ななしの冒険者";
+        coins = 0; maxHp = 3; hp = 3; shieldCount = 0; potionCount = 0; bombCount = 0; hasGoldArmor = false;
+        hasDoubleCoins = false; hasGachaWeapon = false; hasExtendedTime = false; hasHalvedTime = false; hasCheatEraser = false; 
+        isCheatEraserActive = true; hasOneHpCurse = false; isOneHpCurseActive = true; ownedItems = []; totalGachaCount = 0;
+    }
+
+    function resetGameData() {
+        if (confirm("すべてのデータを消去してエンドコンテンツを最初からやり直しますか？")) {
+            localStorage.removeItem("seifu_rpg_save_v50");
+            clearAllFlagsAndItems(); stopTimer();
+            document.getElementById("gacha-log-container").style.display = "none";
+            document.getElementById("home-msg").innerText = "🗑️ データを完全に初期化しました。"; updateHomeStatus();
+        }
+    }
+
+    function updateHomeStatus() {
+        const isComp = (ownedItems && ownedItems.length === 50);
+        document.getElementById("player-name-display").innerText = isComp ? `👑【神話の超越者】${nickname}` : `🛡️ ${nickname}`;
+        document.getElementById("home-coin-display").innerText = `💰 所持金: ${coins}`;
+        document.getElementById("home-hp-display").innerText = `HP: ${"❤️".repeat(hp)}${"🖤".repeat(maxHp-hp)}`;
+        
+        document.getElementById("price-shield-text").innerText = isComp ? "買う: 💰10 | 売る: 💰10 🔥" : "買う: 💰10 | 売る: 💰5";
+        document.getElementById("price-potion-text").innerText = isComp ? "買う: 💰8 | 売る: 💰8 🔥" : "買う: 💰8 | 売る: 💰4";
+        document.getElementById("price-bomb-text").innerText = isComp ? "買う: 💰6 | 売る: 💰6 🔥" : "買う: 💰6 | 売る: 💰3";
+
+        document.getElementById("buy-shield").disabled = (coins < 10);
+        document.getElementById("buy-potion").disabled = (coins < 8);
+        document.getElementById("buy-bomb").disabled = (coins < 6);
+        document.getElementById("buy-goldarmor").disabled = (coins < 50 || hasGoldArmor);
+        
+        document.getElementById("sell-shield").disabled = (shieldCount <= 0);
+        document.getElementById("sell-potion").disabled = (potionCount <= 0);
+        document.getElementById("sell-bomb").disabled = (bombCount <= 0);
+
+        document.getElementById("draw-gacha-1").disabled = (coins < 15);
+        document.getElementById("draw-gacha-10").disabled = (coins < 140);
+        document.getElementById("dark-trade-btn").disabled = (maxHp <= 1 || coins < 20);
+
+        let remainingToCeiling = ceilingTarget - (totalGachaCount % ceilingTarget);
+        document.getElementById("gacha-ceiling-display").innerText = `👑 コレクション確定まで：あと ${remainingToCeiling} 回`;
+
+        let buffText = `📦 🛡️×${shieldCount} | 🧪×${potionCount} | 💣×${bombCount} `;
+        if (hasGoldArmor) buffText += "🔱【金の鎧】 ";
+        if (hasDoubleCoins) buffText += "🪙【金運2倍】 ";
+        if (hasGachaWeapon) buffText += "⚔️【伝説の剣】 ";
+        if (hasExtendedTime) buffText += "⏳【時の砂時計】 ";
+        if (hasHalvedTime) buffText += "<span style='color:#ff4a4a;'>⌛【時間半分呪い】</span> ";
+        
+        if (hasCheatEraser) {
+            const onClass = isCheatEraserActive ? "active-on" : "";
+            const offClass = !isCheatEraserActive ? "active-off" : "";
+            buffText += `❌【消しゴム】<div class="eraser-switch-container">` +
+                        `<button class="eraser-switch-btn ${onClass}" onclick="toggleEraser(true)">ON</button>` +
+                        `<button class="eraser-switch-btn ${offClass}" onclick="toggleEraser(false)">OFF</button>` +
+                        `</div> `;
+        }
+
+        if (hasOneHpCurse) {
+            const onClass = isOneHpCurseActive ? "active-on-warn" : "";
+            const offClass = !isOneHpCurseActive ? "active-off" : "";
+            buffText += `💀【絶望の砂時計】<div class="eraser-switch-container" style="border-color:#ffaa00;">` +
+                        `<button class="eraser-switch-btn ${onClass}" onclick="toggleOneHpCurse(true)">ON</button>` +
+                        `<button class="eraser-switch-btn ${offClass}" onclick="toggleOneHpCurse(false)">OFF</button>` +
+                        `</div> `;
+        }
+
+        document.getElementById("buff-status-display").innerHTML = buffText;
+        checkTimeEvent();
+
+        const secretBtn = document.getElementById("btn-secret-boss");
+        if (isComp) {
+            secretBtn.style.display = "block";
+            document.getElementById("collection-title-main").innerHTML = "🏆 コレクション図鑑 <span style='color:#4ecca3;'>(🎉全50種コンプリート達成!!)</span>";
+        } else {
+            secretBtn.style.display = "none";
+            document.getElementById("collection-title-main").innerText = "🏆 コレクション図鑑";
+        }
+
+        const grid = document.getElementById("collection-grid");
+        grid.innerHTML = "";
+        collectionItems.forEach(item => {
+            const div = document.createElement("div");
+            if (ownedItems && ownedItems.includes(item.id)) {
+                div.className = "collection-item"; div.innerText = item.emoji;
+                div.onclick = () => alert(`【コレクションNo.${item.id + 1}】 ${item.name}`);
+            } else { div.className = "collection-item locked"; div.innerText = "?"; }
+            grid.appendChild(div);
+        });
+        document.getElementById("collection-count").innerText = `${ownedItems ? ownedItems.length : 0} / 50`;
+    }
+
+    function buyItem(item) {
+        const msg = document.getElementById("home-msg");
+        document.getElementById("gacha-log-container").style.display = "none";
+        if (item === 'shield' && coins >= 10) { coins -= 10; shieldCount++; msg.innerText = "🛡️ 鉄壁の盾を1個購入！"; }
+        else if (item === 'potion' && coins >= 8) { coins -= 8; potionCount++; msg.innerText = "🧪 ポーションを1個購入！"; }
+        else if (item === 'bomb' && coins >= 6) { coins -= 6; bombCount++; msg.innerText = "💣 選択肢消去の爆弾を1個購入！"; }
+        saveToLocalStorage(); updateHomeStatus();
+    }
+
+    function buyGoldArmor() {
+        if (coins >= 50 && !hasGoldArmor) {
+            coins -= 50; hasGoldArmor = true;
+            document.getElementById("home-msg").innerText = "🔱 金の鎧（免罪体質）を装備した！";
+            saveToLocalStorage(); updateHomeStatus();
+        }
+    }
+
+    function triggerDarkTrade() {
+        if (maxHp <= 1 || coins < 20) return;
+        coins -= 20; maxHp--; if (hp > maxHp) hp = maxHp;
+        let msgBox = document.getElementById("home-msg");
+        document.getElementById("gacha-log-container").style.display = "none";
+        shieldCount += 5; potionCount += 5; bombCount += 5;
+        msgBox.innerHTML = `<span style="color:#ff4a4a; font-weight:bold;">🔮 闇の契約が完了した…</span><br>物資（🛡️×5, 🧪×5, 💣×5）を手に入れた。`;
+        saveToLocalStorage(); updateHomeStatus();
+    }
+
+    function sellItem(item) {
+        const msg = document.getElementById("home-msg");
+        document.getElementById("gacha-log-container").style.display = "none";
+        const rate = (ownedItems && ownedItems.length === 50) ? 1.0 : 0.5; 
+        if (item === 'shield' && shieldCount > 0) { shieldCount--; coins += (10 * rate); msg.innerText = `🛡️ 盾を売却し、💰${10 * rate}コイン獲得！`; }
+        else if (item === 'potion' && potionCount > 0) { potionCount--; coins += (8 * rate); msg.innerText = `🧪 ポーションを売却し、💰${8 * rate}コイン獲得！`; }
+        else if (item === 'bomb' && bombCount > 0) { bombCount--; coins += (6 * rate); msg.innerText = `💣 爆弾を売却し、💰${6 * rate}コイン獲得！`; }
+        saveToLocalStorage(); updateHomeStatus();
+    }
+
+    function drawGacha(times) {
+        const cost = (times === 10) ? 140 : 15;
+        if (coins < cost) return;
+        coins -= cost;
+        const homeMsg = document.getElementById("home-msg");
+        const logContainer = document.getElementById("gacha-log-container");
+        const logBox = document.getElementById("gacha-result-log");
+        let results = [];
+        
+        for (let i = 0; i < times; i++) {
+            totalGachaCount++; let logText = "";
+            if (totalGachaCount % ceilingTarget === 0) {
+                let unownedPool = [];
+                for (let id = 0; id <= 49; id++) { if (!ownedItems.includes(id)) unownedPool.push(id); }
+                if (unownedPool.length > 0) {
+                    let targetId = unownedPool[Math.floor(Math.random() * unownedPool.length)];
+                    ownedItems.push(targetId); 
+                    if (targetId === 49) { hasCheatEraser = true; isCheatEraserActive = true; }
+                    logText = `👑 [天井確定] 「${collectionItems[targetId].emoji} ${collectionItems[targetId].name}」を獲得！`;
+                } else { coins += 50; logText = `👑 [天井] コンプ済みの為、特別返金 ➔ 💰50コイン！`; }
+            } else {
+                const rand = Math.random();
+                if (rand < 0.00001) { 
+                    if (!ownedItems.includes(49)) {
+                        ownedItems.push(49); hasCheatEraser = true; isCheatEraserActive = true;
+                        logText = "❌ [神話] 【チート消しゴム】を奇跡的に獲得！";
+                    } else { coins += 50; logText = "❌ [神話枠] コンプ済みの為、特別返金 ➔ 💰50コイン！"; }
+                }
+                else if (rand < 0.01) { 
+                    if (!hasOneHpCurse) {
+                        hasOneHpCurse = true; isOneHpCurseActive = true;
+                        logText = `<span style="color:#ffaa00; font-weight:bold;">💀 [超希少・大呪] 【絶望 of 呪いの砂時計】が混入！</span>`;
+                    } else { coins += 20; logText = "💀 【呪いの砂時計被り】 ➔ 💰20換金"; }
+                }
+                else if (rand < 0.03) { 
+                    if (ownedItems.length === 50) { coins += 30; logText = "💀 [呪い無効] 特別返金 ➔ 💰30"; } 
+                    else {
+                        if (maxHp > 1) { maxHp--; if (hp > maxHp) hp = maxHp; logText = `<span style="color:#ff4a4a;">💀 [呪い] 【死神の手紙】！最大HPが1減少。</span>`; } 
+                        else { logText = "💀 [呪い] 耐えた！"; }
+                    }
+                }
+                else if (rand < 0.07) { let stolen = coins >= 20 ? 20 : coins; coins -= stolen; logText = `<span style="color:#ff8c00;">💸 [ハズレ] 財布から 💰${stolen}コイン 盗まれた。</span>`; }
+                else if (rand < 0.09) { 
+                    if (ownedItems.length === 50) { coins += 25; logText = "⌛ [呪い無効] 特別返金 ➔ 💰25"; } else { hasHalvedTime = true; logText = `<span style="color:#ff4a4a;">⌛ [呪い] 【時を狂わせる砂時計】！次戦、制限時間が半分。</span>`; } 
+                }
+                else if (rand < 0.16) { if (!hasDoubleCoins) { hasDoubleCoins = true; logText = "🌈 [超激] 【欲張りのお守り】！"; } else { coins += 30; logText = "🪙 【金運お守り被り】➔ 💰30換金"; } }
+                else if (rand < 0.23) { if (!hasExtendedTime) { hasExtendedTime = true; logText = "⏳ [激] 【時の砂時計】！"; } else { coins += 20; logText = "⏳ 【砂時計被り】➔ 💰20換金"; } }
+                else if (rand < 0.30) { maxHp++; hp = maxHp; logText = "✨ [激] 【命のリンゴ】(最大HP+1)！"; }
+                else if (rand < 0.37) { if (!hasGachaWeapon) { hasGachaWeapon = true; logText = "⚔️ [レ] 【伝説の剣】！"; } else { coins += 25; logText = "⚔️ 【伝説の剣被り】➔ 💰25換金"; } }
+                else if (rand < 0.50) { bombCount += 2; logText = "💣 【選択肢消去の爆弾】×2！"; }
+                else if (rand < 0.65) { potionCount += 2; logText = "🧪 【ポーション】×2！"; }
+                else if (rand >= 0.95 && rand < 0.99) { 
+                    let unownedPool = [];
+                    for (let id = 0; id <= 48; id++) { if (!ownedItems.includes(id)) unownedPool.push(id); }
+                    if (unownedPool.length > 0) {
+                        const targetId = unownedPool[Math.floor(Math.random() * unownedPool.length)]; ownedItems.push(targetId);
+                        logText = `🧸 超低確率を突破！新獲得！「${collectionItems[targetId].emoji} ${collectionItems[targetId].name}」`;
+                    } else { coins += 50; logText = `🪙 フィギュア枠当選！(換金)`; }
+                } 
+                else { shieldCount++; logText = "🛡️ 【鉄壁の盾】×1！"; }
+            }
+            results.push(`${times === 10 ? (i+1) + "回目: " : ""}${logText}`);
+        }
+        if (times === 1) { homeMsg.innerHTML = `🎰 <b>ガチャ結果:</b><br>${results[0]}`; logContainer.style.display = "none"; }
+        else { homeMsg.innerHTML = `🎰 <b>10連ガチャを実行しました！</b>`; logBox.innerHTML = results.join("<br>"); logContainer.style.display = "block"; logBox.scrollTop = 0; }
+        updateHomeStatus(); saveToLocalStorage();
+    }
+
+    function updateBattleItemButtons() {
+        const sBtn = document.getElementById("use-shield-btn");
+        const pBtn = document.getElementById("use-potion-btn");
+        const bBtn = document.getElementById("use-bomb-btn");
+        sBtn.innerText = isShieldActiveThisTurn ? "🛡️ 展開中" : `🛡️ 盾 (${shieldCount})`;
+        sBtn.disabled = (shieldCount <= 0 || isShieldActiveThisTurn || !isTimerRunning || isAwakeningMode);
+        pBtn.innerText = `🧪 回復 (${potionCount})`;
+        pBtn.disabled = (potionCount <= 0 || hp >= maxHp || !isTimerRunning || isAwakeningMode);
+        bBtn.innerText = `💣 爆弾 (${bombCount})`;
+        bBtn.disabled = (bombCount <= 0 || disabledChoicesThisTurn.length >= 2 || !isTimerRunning || isAwakeningMode);
+    }
+
+    function useItemInBattle(item) {
+        const resultText = document.getElementById("result-text");
+        if (!isTimerRunning || isAwakeningMode) return;
+        if (item === 'shield' && shieldCount > 0 && !isShieldActiveThisTurn) { shieldCount--; isShieldActiveThisTurn = true; resultText.className = "result-message success"; resultText.innerText = "🛡️ 盾展開！このターン無敵状態！"; } 
+        else if (item === 'potion' && potionCount > 0 && hp < maxHp) { potionCount--; hp++; resultText.className = "result-message success"; resultText.innerText = "🧪 HPが1回復！"; updateStatus(); }
+        else if (item === 'bomb' && bombCount > 0 && disabledChoicesThisTurn.length < 2) {
+            let wrongs = [];
+            for (let i = 0; i < 4; i++) { if (currentChoices[i] !== correctAnswer && !disabledChoicesThisTurn.includes(i)) wrongs.push(i); }
+            if (wrongs.length > 0) {
+                bombCount--; let idx = wrongs[Math.floor(Math.random() * wrongs.length)]; disabledChoicesThisTurn.push(idx);
+                const tBtn = document.getElementById(`btn-${idx}`); tBtn.innerText = "💥 爆破"; tBtn.disabled = true;
+                resultText.className = "result-message success"; resultText.innerText = "💣 間違いを1つ爆破した！";
+            }
+        }
+        updateBattleItemButtons(); saveToLocalStorage();
+    }
+
+    function startTimer() {
+        stopTimer();
+        
+        const timerBar = document.getElementById("timer-bar");
+        timerBar.classList.remove("hidden-bar");
+        timerBar.classList.remove("speed-bar");
+
+        if (isAwakeningMode) {
+            // 覚醒タイム用タイマー（6秒固定、減少ペナルティなし）
+            currentMaxTime = 6.0;
+            timeLeft = awakeningTimeLeft;
+            isTimerRunning = true;
+            updateTimerUI();
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                awakeningTimeLeft = timeLeft;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    updateTimerUI();
+                    endAwakeningMode();
+                } else {
+                    updateTimerUI();
+                }
+            }, 100);
+            return;
+        }
+
+        let baseTime = 10.0;
+        if (gameMode === 'secret') baseTime = 8.0;
+        if (gameMode === 'speed') baseTime = 5.0; // 神速の試練は基本5秒の超短期戦！
+        
+        let modifier = 1.0;
+        if (hasExtendedTime) modifier *= 1.5;
+        if (hasHalvedTime) modifier *= 0.5;
+        
+        if (enemyType === 'boss') { currentMaxTime = 3.0; } 
+        else if (enemyType === 'elite' && elitePenaltyType === 1) { currentMaxTime = (baseTime * modifier) * 0.5; } 
+        else { currentMaxTime = baseTime * modifier; }
+
+        if (gameMode === 'speed') timerBar.classList.add("speed-bar");
+
+        timeLeft = currentMaxTime; isTimerRunning = true; updateTimerUI();
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            if (timeLeft <= 0) { timeLeft = 0; updateTimerUI(); handleTimeUp(); } else { updateTimerUI(); }
+        }, 100);
+    }
+
+    function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } isTimerRunning = false; }
+    
+    function updateTimerUI() {
+        const bar = document.getElementById("timer-bar"); 
+        const text = document.getElementById("timer-text");
+        bar.style.width = `${(timeLeft / currentMaxTime) * 100}%`; 
+        
+        if (isAwakeningMode) {
+            text.innerText = `✨ 覚醒バースト中！残り: ${timeLeft.toFixed(1)}s`;
+        } else if (enemyType === 'shadow') {
+            bar.classList.add("hidden-bar");
+            text.innerText = "残り時間: ？？？";
+        } else {
+            text.innerText = `残り時間: ${timeLeft.toFixed(1)}s`;
+        }
+    }
+
+    function checkCollectionLoss() {
+        if (isShieldActiveThisTurn) return "";
+        if (!ownedItems || ownedItems.length === 0) return "";
+        if (gameMode === 'speed') return ""; // スピードイベント中はコレクションをロストしない優しさ仕様
+        let candidates = ownedItems.filter(id => id !== 49); 
+        if (candidates.length === 0) return "";
+        if (Math.random() < 0.30) {
+            const randomIndex = Math.floor(Math.random() * candidates.length); const lostItemId = candidates[randomIndex];
+            const indexInOwned = ownedItems.indexOf(lostItemId); ownedItems.splice(indexInOwned, 1);
+            const lostItem = collectionItems.find(item => item.id === lostItemId); saveToLocalStorage();
+            return `<br><span style="color:#ff4a4a; font-size:13px;">⚠️ 「${lostItem.emoji} ${lostItem.name}` + "」を失った！</span>";
+        }
+        return "";
+    }
+
+    function applyDamageProcess(rText, baseFailMessage) {
+        const lostMsg = checkCollectionLoss();
+        if (hasOneHpCurse && isOneHpCurseActive) {
+            if (hp <= 1) {
+                hp = 0; rText.className = "result-message error";
+                rText.innerHTML = `💀 命の灯火が完全に消え去った！${lostMsg}`;
+            } else {
+                hp = 1; rText.className = "result-message error";
+                rText.innerHTML = `💀 残りHPが強制的に❤️×1に書き換えられた！${lostMsg}`;
+            }
+        }
+        else if (hasGoldArmor) {
+            if (coins >= 30) {
+                coins -= 30; rText.className = "result-message success";
+                rText.innerText = `🔱 HPの代わりに💰30消費して無効化！${lostMsg}`;
+            } else {
+                hasGoldArmor = false; hp -= 2; rText.className = "result-message error";
+                rText.innerText = `💥 鎧が砕け散り致命傷（❤️×2ダメージ）を受けた！${lostMsg}`;
+            }
+        } else {
+            hp--; rText.className = "result-message error"; rText.innerHTML = `${baseFailMessage}${lostMsg}`;
+        }
+    }
+
+    function handleTimeUp() {
+        stopTimer(); const rText = document.getElementById("result-text");
+        for(let i=0; i<4; i++) document.getElementById(`btn-${i}`).disabled = true;
+        updateBattleItemButtons();
+        if (isShieldActiveThisTurn) { isShieldActiveThisTurn = false; rText.className = "result-message success"; rText.innerText = "⌛ 時間切れ！しかし盾が守った！"; } 
+        else { applyDamageProcess(rText, `💥 時間切れダメージ！(正解: ${correctAnswer})`); }
+        updateStatus();
+        if (hp <= 0) { setTimeout(() => { endGame(false); }, 1500); return; }
+        setTimeout(() => { rText.innerText = ""; generateQuestion(); }, 2000);
+    }
+
+    function startGame(mode) {
+        gameMode = mode; stage = 1; isShieldActiveThisTurn = false; disabledChoicesThisTurn = []; eraserJustLost = false;
+        awakeningGauge = 0; isAwakeningMode = false;
+        maxStage = (mode === 'secret') ? 10 : 5; 
+
+        document.getElementById("home-screen").style.display = "none";
+        document.getElementById("game-screen").style.display = "block";
+        document.getElementById("result-text").innerText = "";
+        
+        // ゲージコンテナの表示制御
+        const gContainer = document.getElementById("gauge-container");
+        if (mode === 'speed') {
+            gContainer.style.display = "block";
+            document.getElementById("gauge-bar").style.width = "0%";
+        } else {
+            gContainer.style.display = "none";
+        }
+
+        updateBattleResultView(); updateBattleItemButtons();
+        if (hasCheatEraser && isCheatEraserActive) { triggerCheatEraserWin(); } 
+        else if (hasGachaWeapon && gameMode !== 'secret' && gameMode !== 'speed') { triggerSwordAutoWin(); } 
+        else { generateQuestion(); }
+    }
+
+    function triggerCheatEraserWin() {
+        document.getElementById("monster").innerText = "💥"; document.getElementById("question-text").innerText = "ERASING...";
+        coins += 530000; stage = maxStage; updateStatus();
+        if (Math.random() < 0.70) { hasCheatEraser = false; const idx = ownedItems.indexOf(49); if (idx > -1) ownedItems.splice(idx, 1); eraserJustLost = true; }
+        setTimeout(() => { endGame(true); }, 1500);
+    }
+
+    function triggerSwordAutoWin() {
+        let ec = (gameMode === 'hard' ? 15 : 10) + 5; 
+        if (hasDoubleCoins) ec *= 2;
+        if (isEventActive()) ec *= 2; 
+        coins += ec;
+        document.getElementById("monster").innerText = "💥"; document.getElementById("question-text").innerText = "⚔️ 伝説の剣が一閃！";
+        stage = 2; updateStatus(); setTimeout(() => { generateQuestion(); }, 1200);
+    }
+
+    function updateBattleResultView() {
+        let txt = "";
+        if (gameMode === 'secret') txt += "💀【真・極魔王：制限時間8秒 / 4項演算】 ";
+        if (gameMode === 'speed') txt += "⚡【神速の試練：基本5秒 / 3秒内正解でダメ3倍＆覚醒】 ";
+        if (hasGoldArmor) txt += "🔱【金の鎧】 ";
+        if (hasDoubleCoins) txt += "🪙【金運2倍】 ";
+        if (hasGachaWeapon && gameMode !== 'secret' && gameMode !== 'speed') txt += "⚔️【伝説の剣】 ";
+        if (hasExtendedTime) txt += "⏳【時の砂時計】 ";
+        if (hasHalvedTime) txt += "<span style='color:#ff4a4a;'>⌛【呪い：時間半分】</span> ";
+        if (hasOneHpCurse && isOneHpCurseActive) txt += "<span style='color:#ff4a4a;'>💀【絶望：ミス時HP1】</span> ";
+        if (isEventActive()) txt += "<span style='color:#4ecca3;'>✨【時限イベント】コイン2倍適用中！✨ </span>";
+        document.getElementById("battle-buff-display").innerHTML = txt;
+    }
+
+    function getRandNum() { return (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 6) + 1); } 
+    function formatNum(num) { return num < 0 ? `(${num})` : `${num}`; }
+
+    function makeChoices(correct) {
+        const s = new Set([correct]);
+        while (s.size < 4) { let d = correct + (Math.floor(Math.random() * 19) - 9); if (d !== correct) s.add(d); }
+        return Array.from(s).sort(() => Math.random() - 0.5);
+    }
+
+    function generateQuestion() {
+        if (!isAwakeningMode) {
+            isShieldActiveThisTurn = false; disabledChoicesThisTurn = [];
+        }
+        const mBox = document.getElementById("monster-box");
+        mBox.className = "monster-area"; 
+        
+        enemyType = 'normal';
+        coinMultiplier = 1;
+
+        if (gameMode === 'speed' && isAwakeningMode) {
+            // 【覚醒モード】超高速フラッシュ暗算（超かんたんな1桁の足し引き）
+            mBox.classList.add("awakening-bg");
+            let a = Math.floor(Math.random() * 9) + 1;
+            let b = Math.floor(Math.random() * 9) + 1;
+            let op = Math.random() < 0.5 ? "+" : "-";
+            if (op === "+") correctAnswer = a + b;
+            else {
+                if (a < b) { let tmp = a; a = b; b = tmp; } // 必ず答えを正の数にして解きやすく
+                correctAnswer = a - b;
+            }
+            document.getElementById("question-text").innerText = `${a} ${op} ${b} = ?`;
+        }
+        else if (gameMode === 'speed') {
+            // 【神速モード通常】スピードエネミー
+            mBox.classList.add("speed-bg");
+            let a = getRandNum(), b = getRandNum();
+            let op = Math.random() < 0.5 ? "+" : "-";
+            if (op === "+") correctAnswer = a + b; else correctAnswer = a - b;
+            document.getElementById("question-text").innerText = `${formatNum(a)} ${op} ${formatNum(b)} = ?`;
+        }
+        else {
+            // 通常・ハード・シークレットの抽選ロジック
+            const randEnemy = Math.random();
+            if (randEnemy < 0.02) {
+                enemyType = 'boss'; coinMultiplier = 5; mBox.classList.add("boss-bg");
+            } else if (randEnemy < 0.15) {
+                enemyType = 'elite'; coinMultiplier = 3;
+                elitePenaltyType = Math.random() < 0.5 ? 1 : 2; mBox.classList.add("elite-bg");
+            } else if (randEnemy < 0.30) { 
+                enemyType = 'shadow'; coinMultiplier = 2; mBox.classList.add("shadow-bg");
+            }
+
+            if (enemyType === 'boss' || enemyType === 'elite' || (enemyType === 'shadow' && Math.random() < 0.5)) {
+                const pattern = Math.floor(Math.random() * 2);
+                if (pattern === 0) {
+                    let a = (Math.floor(Math.random() * 12) + 4) * (Math.random() < 0.5 ? 1 : -1); 
+                    let b = Math.floor(Math.random() * 8) + 2; let c = 10 - b; 
+                    correctAnswer = a * (b + c);
+                    document.getElementById("question-text").innerText = `${formatNum(a)} × ${formatNum(b)} + ${formatNum(a)} × ${formatNum(c)} = ?`;
+                } else {
+                    const targetMultipliers = [9, 11, 19, 21, 99, 101];
+                    let base = targetMultipliers[Math.floor(Math.random() * targetMultipliers.length)];
+                    let multiplier = (Math.floor(Math.random() * 7) + 3) * (Math.random() < 0.5 ? 1 : -1); 
+                    correctAnswer = base * multiplier;
+                    document.getElementById("question-text").innerText = `${formatNum(base)} × ${formatNum(multiplier)} = ?`;
+                }
+            } else {
+                if (gameMode === 'normal') {
+                    let a = getRandNum(), b = getRandNum(); const ops = ["+", "-", "×"]; let op = ops[Math.floor(Math.random() * ops.length)];
+                    if (op === "+") correctAnswer = a + b; else if (op === "-") correctAnswer = a - b; else if (op === "×") correctAnswer = a * b;
+                    document.getElementById("question-text").innerText = `${formatNum(a)} ${op} ${formatNum(b)} = ?`;
+                } else if (gameMode === 'hard') {
+                    let a = getRandNum(), b = getRandNum(), c = getRandNum();
+                    if (Math.random() < 0.5) { correctAnswer = (a * b) + c; document.getElementById("question-text").innerText = `${formatNum(a)} × ${formatNum(b)} + ${formatNum(c)} = ?`; }
+                    else { correctAnswer = a - (b * c); document.getElementById("question-text").innerText = `${formatNum(a)} - ${formatNum(b)} × ${formatNum(c)} = ?`; }
+                } else {
+                    let a = getRandNum(), b = getRandNum(), c = getRandNum(), d = getRandNum();
+                    correctAnswer = (a * b) + (c * d); document.getElementById("question-text").innerText = `${formatNum(a)} × ${formatNum(b)} + ${formatNum(c)} × ${formatNum(d)} = ?`;
+                }
+            }
+        }
+        
+        currentChoices = makeChoices(correctAnswer);
+        for(let i = 0; i < 4; i++) { const btn = document.getElementById(`btn-${i}`); btn.innerText = currentChoices[i]; btn.disabled = false; }
+        
+        const mEmoji = document.getElementById("monster");
+        const rText = document.getElementById("result-text");
+        
+        if (isAwakeningMode) {
+            mEmoji.innerText = "🔥";
+            rText.className = "result-message success";
+            rText.innerText = "✨ 覚醒フラッシュボーナス！ミスしてもペナルティなし！ ✨";
+        } else if (gameMode === 'speed') {
+            mEmoji.innerText = "⚡";
+            rText.className = "result-message success";
+            rText.innerText = `STAGE ${stage}: ${monstersSpeed[(stage - 1) % monstersSpeed.length]}`;
+        } else if (enemyType === 'boss') {
+            mEmoji.innerText = "😈"; rText.className = "result-message error";
+            rText.innerText = `⚠️ 魔王級急襲：${bossmonsters[Math.floor(Math.random()*bossmonsters.length)]}\n(【分配法則】を見抜け！制限時間3秒固定 / コイン5倍!)`;
+        } else if (enemyType === 'elite') {
+            mEmoji.innerText = "👹"; rText.className = "result-message success";
+            let pDesc = elitePenaltyType === 1 ? "制限時間半分！" : "間違い強制爆破（2択勝負）！";
+            rText.innerText = `⚔️ 強敵出現：${elitemonsters[Math.floor(Math.random()*elitemonsters.length)]}\n( / ${pDesc} / コイン3倍!)`;
+            if (elitePenaltyType === 2) {
+                let wrongs = [];
+                for(let i=0; i<4; i++) { if(currentChoices[i] !== correctAnswer) wrongs.push(i); }
+                wrongs.sort(() => Math.random() - 0.5); disabledChoicesThisTurn.push(wrongs[0], wrongs[1]);
+                setTimeout(() => { disabledChoicesThisTurn.forEach(idx => { const b = document.getElementById(`btn-${idx}`); b.innerText = "❌"; b.disabled = true; }); }, 50);
+            }
+        } else if (enemyType === 'shadow') {
+            mEmoji.innerText = "👥"; rText.className = "result-message error";
+            rText.innerText = `⬛ 隠密急襲：${shadowmonsters[Math.floor(Math.random()*shadowmonsters.length)]}\n(⚠️ 制限時間が一切見えない！ / コイン2倍!)`;
+        } else {
+            let pool = (gameMode === 'normal') ? monstersNormal : (gameMode === 'hard' ? monstersHard : monstersSecret);
+            mEmoji.innerText = pool[(stage - 1) % pool.length];
+        }
+        updateBattleResultView(); updateStatus(); updateBattleItemButtons(); startTimer(); 
+    }
+
+    function startAwakeningMode() {
+        stopTimer();
+        isAwakeningMode = true;
+        awakeningTimeLeft = 6.0;
+        document.getElementById("result-text").className = "result-message success";
+        document.getElementById("result-text").innerText = "🤩 脳内物質大放出！覚醒バーストモード突入！！";
+        setTimeout(() => { generateQuestion(); }, 1000);
+    }
+
+    function endAwakeningMode() {
+        stopTimer();
+        isAwakeningMode = false;
+        awakeningGauge = 0;
+        document.getElementById("gauge-bar").style.width = "0%";
+        document.getElementById("result-text").className = "result-message success";
+        document.getElementById("result-text").innerText = "⌛ 覚醒モード終了！通常戦闘に戻ります。";
+        setTimeout(() => { generateQuestion(); }, 1200);
+    }
+
+    function checkAnswer(choiceIndex) {
+        if (disabledChoicesThisTurn.includes(choiceIndex)) return;
+        stopTimer(); const selectedAnswer = currentChoices[choiceIndex]; const rText = document.getElementById("result-text");
+        for(let i=0; i<4; i++) document.getElementById(`btn-${i}`).disabled = true;
+        updateBattleItemButtons();
+
+        // 正解時処理
+        if (selectedAnswer === correctAnswer) {
+            let solveTime = currentMaxTime - timeLeft; // 解答にかかった時間
+            let isSpeedClear = (solveTime <= 3.0);
+
+            let ec = (gameMode === 'secret') ? 100 : (gameMode === 'hard' ? 15 : 10); 
+            if (gameMode === 'speed') {
+                ec = isAwakeningMode ? 8 : 12; // 覚醒中はサクサク稼げる
+                if (isSpeedClear && !isAwakeningMode) ec *= 3; // スピードスターボーナス3倍ダメージ＆3倍コイン！
+            }
+
+            ec *= coinMultiplier; 
+            if (hasDoubleCoins) ec *= 2;
+            if (isEventActive()) ec *= 2; // 時限イベントによる2倍適用
+            
+            coins += ec;
+            rText.className = "result-message success"; 
+
+            let successPrefix = "✨ 正解！ ";
+            if (isAwakeningMode) successPrefix = "⚡ バースト連打！ ";
+            else if (gameMode === 'speed' && isSpeedClear) successPrefix = "⚡【電撃解答：ダメージ3倍】✨ ";
+            else if (enemyType !== 'normal') successPrefix = "🏆 特殊エネミー撃破！ ";
+
+            rText.innerText = `${successPrefix}(💰+${ec})`;
+
+            // ゲージの処理（スピードイベント通常時のみ）
+            if (gameMode === 'speed' && !isAwakeningMode) {
+                if (isSpeedClear) awakeningGauge += 34; // 3回連続電撃解答でMAX
+                else awakeningGauge += 10;
+                if (awakeningGauge > 100) awakeningGauge = 100;
+                document.getElementById("gauge-bar").style.width = `${awakeningGauge}%`;
+            }
+
+            if (!isAwakeningMode) {
+                stage++;
+            }
+            updateStatus();
+
+            // 終了判定
+            if (stage > maxStage && !isAwakeningMode) { 
+                setTimeout(() => { endGame(true); }, 1200); return; 
+            }
+
+            // 覚醒突入チェック
+            if (gameMode === 'speed' && awakeningGauge >= 100 && !isAwakeningMode) {
+                setTimeout(() => { startAwakeningMode(); }, 1200);
+            } else {
+                setTimeout(() => { rText.innerText = ""; generateQuestion(); }, isAwakeningMode ? 400 : 1200);
+            }
+
+        } else {
+            // 不正解時処理
+            if (isAwakeningMode) {
+                // 覚醒モード中はノーペナルティで次の問題へ
+                rText.className = "result-message error";
+                rText.innerText = "❌ どんまい！次だ！";
+                setTimeout(() => { generateQuestion(); }, 400);
+            } else {
+                if (isShieldActiveThisTurn) { isShieldActiveThisTurn = false; rText.className = "result-message success"; rText.innerText = "🛡️ 不正解！しかし盾が防いだ！"; } 
+                else { applyDamageProcess(rText, `💥 不正解！ダメージ！ (正解は ${correctAnswer})`); }
+                updateStatus();
+                if (hp <= 0) { setTimeout(() => { endGame(false); }, 1500); return; }
+                setTimeout(() => { 
+                    for(let i=0; i<4; i++) { if (!disabledChoicesThisTurn.includes(i)) document.getElementById(`btn-${i}`).disabled = false; }
+                    rText.innerText = ""; startTimer(); updateBattleItemButtons();
+                }, 1500);
+            }
+        }
+    }
+
+    function updateStatus() {
+        if (document.getElementById("game-screen").style.display === "block") {
+            document.getElementById("stage-display").innerText = `STAGE: ${stage}/${maxStage}`;
+            document.getElementById("coin-display").innerText = `💰: ${coins}`;
+            document.getElementById("hp-display").innerText = `HP: ${"❤️".repeat(hp)}${"🖤".repeat(maxHp-hp)}`;
+        }
+    }
+
+    function endGame(isWin) {
+        stopTimer(); document.getElementById("btn-0").parentNode.style.display = "none";
+        document.getElementById("use-shield-btn").disabled = true;
+        document.getElementById("use-potion-btn").disabled = true;
+        document.getElementById("use-bomb-btn").disabled = true;
+        hasHalvedTime = false;
+        
+        const rBox = document.getElementById("result-text");
+        if (isWin) {
+            if (gameMode === 'secret') {
+                document.getElementById("monster").innerText = "🌌"; document.getElementById("question-text").innerText = "👑 GRAND FINALE 👑";
+                rBox.innerHTML = `<span style='color:#ffbc00; font-size:18px;'>🎉 【神聖なる超越者エンディング】 🎉</span><br><br>超越者「${nickname}」は、全50種のコレクションを制覇した！<br><br><button class='action-btn' onclick='returnToHome()'>神話からの帰還</button>`;
+            } else if (gameMode === 'speed') {
+                document.getElementById("monster").innerText = "⚡"; document.getElementById("question-text").innerText = "SPEED TRIAL CLEAR!!";
+                rBox.innerHTML = `🎉 【${nickname}】は見事に神速の試練を突破した！<br>脳が超活性化している！<br><br><button class='action-btn' onclick='returnToHome()'>拠点へ戻る</button>`;
+            } else {
+                document.getElementById("monster").innerText = "🏆"; document.getElementById("question-text").innerText = "DUNGEON CLEAR!!";
+                let lostNotice = eraserJustLost ? `<br><span style="color:#ff4a4a; font-size:14px; font-weight:bold;">⚠️ バグ消しゴムは崩壊し、消滅した…</span>` : "";
+                rBox.innerHTML = `🎉 【${nickname}】は見事にダンジョンをクリアした！${lostNotice}<br><br><button class='action-btn' onclick='returnToHome()'>拠点へ戻る</button>`;
+            }
+        } else {
+            document.getElementById("monster").innerText = "💀"; document.getElementById("question-text").innerText = "GAME OVER";
+            rBox.innerHTML = "複雑な演算に脳のスタミナが切れてしまった...。<br><button class='action-btn' onclick='returnToHome()' style='margin-top:10px;'>拠点へ戻る</button>";
+        }
+    }
+
+    function returnToHome() {
+        hp = maxHp; stopTimer(); eraserJustLost = false; hasHalvedTime = false;
+        isAwakeningMode = false; awakeningGauge = 0;
+        document.getElementById("game-screen").style.display = "none";
+        document.getElementById("home-screen").style.display = "block";
+        document.getElementById("btn-0").parentNode.style.display = "grid";
+        document.getElementById("home-msg").innerText = ""; 
+        document.getElementById("gacha-log-container").style.display = "none";
+        updateHomeStatus(); saveToLocalStorage(); 
+    }
+</script>
+
+</body>
+</html>
