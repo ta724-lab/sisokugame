@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>正負の数・四則演算RPG（神速の試練イベント実装版）</title>
+    <title>正負の数・四則演算RPG（GitHubデプロイ対応版）</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -56,7 +56,6 @@
             position: relative;
             transition: background-color 0.3s;
         }
-        /* 特殊エネミー用の背景スタイル */
         .monster-area.elite-bg {
             background-color: #4a0e17;
             border: 2px solid #e94560;
@@ -71,7 +70,6 @@
             border: 2px solid #a124ff;
             animation: boss-glow 1.5s infinite alternate;
         }
-        /* イベント・覚醒モード用の背景 */
         .monster-area.speed-bg {
             background: linear-gradient(145deg, #004d4d, #001a1a);
             border: 2px solid #00ffff;
@@ -148,7 +146,6 @@
             text-shadow: 1px 1px 2px #000;
         }
 
-        /* 覚醒ゲージの見た目 */
         .gauge-container {
             width: 100%;
             background-color: #111625;
@@ -355,8 +352,13 @@
         }
         .gacha-buttons {
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 6px;
             margin-top: 8px;
+        }
+        .gacha-row-top {
+            display: flex;
+            gap: 8px;
         }
         .gacha-ceiling-info {
             font-size: 11px;
@@ -408,10 +410,21 @@
         }
         .btn-sell:hover:not(:disabled) { background-color: #61f2c2; }
 
-        .btn-gacha { background-color: #ffbc00; color: #1a1a2e; flex-grow: 1; text-align: center; font-size: 13px;}
+        .btn-gacha { background-color: #ffbc00; color: #1a1a2e; flex-grow: 1; text-align: center; font-size: 13px; height: 34px;}
         .btn-gacha:hover:not(:disabled) { background-color: #ffe066; }
         .btn-gacha-10 { background-color: #e94560; color: white; }
         .btn-gacha-10:hover:not(:disabled) { background-color: #ff6b81; }
+        .btn-gacha-100 {
+            background: linear-gradient(45deg, #7928ca, #ff007f);
+            color: white;
+            border: 1px solid #ffffff;
+            width: 100%;
+            font-size: 13px;
+        }
+        .btn-gacha-100:hover:not(:disabled) {
+            background: linear-gradient(45deg, #ff007f, #7928ca);
+            box-shadow: 0 0 10px rgba(255,0,127,0.5);
+        }
         .btn-dark { background: linear-gradient(45deg, #a1001a, #5c000e); color: white; border: 1px solid #ff4a4a; width: 100%; margin-top: 5px; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }
         .btn-dark:disabled { background: #222; border-color: #444; color: #555; cursor: not-allowed; }
 
@@ -423,7 +436,7 @@
             margin-top: 10px;
             font-size: 12px;
             text-align: left;
-            max-height: 150px;
+            max-height: 180px;
             overflow-y: auto;
             color: #4ecca3;
             line-height: 1.4;
@@ -688,8 +701,11 @@
                         <span style="font-size: 11px; color: #aaa;">✨ コレクション枠確率: <b>4% </b> の沼を乗り越えろ！</span>
                     </div>
                     <div class="gacha-buttons">
-                        <button class="btn-buy btn-gacha" id="draw-gacha-1" onclick="drawGacha(1)">単発 💰15</button>
-                        <button class="btn-buy btn-gacha btn-gacha-10" id="draw-gacha-10" onclick="drawGacha(10)">10連 💰140</button>
+                        <div class="gacha-row-top">
+                            <button class="btn-buy btn-gacha" id="draw-gacha-1" onclick="drawGacha(1)">単発 💰15</button>
+                            <button class="btn-buy btn-gacha btn-gacha-10" id="draw-gacha-10" onclick="drawGacha(10)">10連 💰140</button>
+                        </div>
+                        <button class="btn-buy btn-gacha btn-gacha-100" id="draw-gacha-100" onclick="drawGacha(100)">💥 怒涛の100連ガチャ 💰1350</button>
                     </div>
                     <div class="gacha-ceiling-info" id="gacha-ceiling-display">👑 コレクション確定まで：あと 200 回</div>
 
@@ -885,10 +901,9 @@
     let hasOneHpCurse = false;
     let isOneHpCurseActive = true;
 
-    // スピードイベント用変数
-    let awakeningGauge = 0; // 0〜100
+    let awakeningGauge = 0; 
     let isAwakeningMode = false;
-    let awakeningTimeLeft = 6; // 覚醒タイムは6秒間固定
+    let awakeningTimeLeft = 6; 
 
     let totalGachaCount = 0; 
     const ceilingTarget = 200; 
@@ -908,7 +923,7 @@
         { id: 11, name: "ゴールドの分度器", emoji: "📐" },
         { id: 12, name: "ゼロの概念カード", emoji: "🃏" },
         { id: 13, name: "素数マニアの刻印", emoji: "⚙️" },
-        { id: 14, name: "九九のスクロール", emoji: "📜" },
+        { id: 14, name: "九九 of スクロール", emoji: "📜" },
         { id: 15, name: "魔力を帯びた数珠", emoji: "📿" },
         { id: 16, name: "虚数単位「i」の結晶", emoji: "💎" },
         { id: 17, name: "黄金比のブローチ", emoji: "🔱" },
@@ -921,15 +936,15 @@
         { id: 24, name: "確率論のルーレット", emoji: "🎡" },
         { id: 25, name: "トポロジーの知恵の輪", emoji: "💍" },
         { id: 26, name: "メビウスの終わりなき帯", emoji: "🎗️" },
-        { id: 27, name: "フラクタルの幾何学雪", emoji: "❄️" },
+        { id: 27, name: "フラクタルの幾学雪", emoji: "❄️" },
         { id: 28, name: "微分積分の砂時計", emoji: "⏳" },
         { id: 29, name: "ネイピア数のアンティーク時計", emoji: "🕰️" },
         { id: 30, name: "行列式のチェス駒", emoji: "♟️" },
         { id: 31, name: "ベクトルの方位磁針", emoji: "🏹" },
         { id: 32, name: "統計学の天秤", emoji: "⚖️" },
         { id: 33, name: "集合論の三重リング", emoji: "⭕" },
-        { id: 34, name: "フェルマーの最終定理の紙片", emoji: "📝" },
-        { id: 35, name: "オイラーの美しき等式ペン", emoji: "✒️" },
+        { id: 34, name: "フェルマー of 最終定理の紙片", emoji: "📝" },
+        { id: 35, name: "オイラー of 美しき等式ペン", emoji: "✒️" },
         { id: 36, name: "不完全性定理の壊れた時計", emoji: "⏰" },
         { id: 37, name: "アインシュタインのチョーク", emoji: "🖍️" },
         { id: 38, name: "ニュートンの禁断のリンゴ", emoji: "🍎" },
@@ -943,11 +958,11 @@
         { id: 46, name: "絶対値のクリスタルウォール", emoji: "🧱" },
         { id: 47, name: "不等号のブーメラン", emoji: "🪃" },
         { id: 48, name: "四則演算のマスタークラウン", emoji: "👑" },
-        { id: 49, name: "❌禁忌 of バグ消しゴム", emoji: "❌" }
+        { id: 49, name: "❌ 禁忌 of バグ消しゴム", emoji: "❌" }
     ];
     let ownedItems = [];
 
-    const monstersNormal = ["👾", "👻", "👹", "🦊", "🐉"];
+    const monstersNormal = ["💧", "👻", "👹", " Foxes ", "🐉"];
     const monstersHard = ["💀", "🔥", "👁️", "⚡", "😈"];
     const monstersSecret = ["👹", "👺", "🐉", "🔥", "🌋", "⚡", "🔮", "🩸", "🔱", "👿"]; 
     const monstersSpeed = ["⚡[マッハ・コア]", "🐆[シャドウ・チーター]", "🦅[ソニック・ホーク]", "🌀[ハリケーン・アイ]", "⚡[魔王機兵マッハ]"];
@@ -959,15 +974,12 @@
     window.onload = function() {
         loadLocalStorageData();
         updateHomeStatus();
-        // 拠点画面の時限イベント通知を定期アップデート
         setInterval(checkTimeEvent, 1000);
     };
 
-    // 19:00〜20:00の時限イベント判定関数
     function isEventActive() {
         const now = new Date();
-        const hour = now.getHours();
-        return (hour === 19); // 19:00:00 〜 19:59:59 の間
+        return (now.getHours() === 19); 
     }
 
     function checkTimeEvent() {
@@ -1030,7 +1042,7 @@
         isCheatEraserActive = status;
         const msg = document.getElementById("home-msg");
         if(isCheatEraserActive) {
-            msg.innerText = "❌ 禁忌の消しゴムを【ON】にしました。（使用時：70%の確率で消滅する呪い付き）";
+            msg.innerText = "❌ 禁忌の消しゴムを【ON】にしました。（使用すると100%確実に消滅します）";
         } else {
             msg.innerText = "🔒 禁忌の消しゴムを【OFF】にしました。";
         }
@@ -1135,7 +1147,7 @@
     }
 
     function resetGameData() {
-        if (confirm("すべてのデータを消去してエンドコンテンツを最初からやり直しますか？")) {
+        if (confirm("すべてのデータを消去して最初からやり直しますか？")) {
             localStorage.removeItem("seifu_rpg_save_v50");
             clearAllFlagsAndItems(); stopTimer();
             document.getElementById("gacha-log-container").style.display = "none";
@@ -1164,6 +1176,7 @@
 
         document.getElementById("draw-gacha-1").disabled = (coins < 15);
         document.getElementById("draw-gacha-10").disabled = (coins < 140);
+        document.getElementById("draw-gacha-100").disabled = (coins < 1350);
         document.getElementById("dark-trade-btn").disabled = (maxHp <= 1 || coins < 20);
 
         let remainingToCeiling = ceilingTarget - (totalGachaCount % ceilingTarget);
@@ -1188,7 +1201,7 @@
         if (hasOneHpCurse) {
             const onClass = isOneHpCurseActive ? "active-on-warn" : "";
             const offClass = !isOneHpCurseActive ? "active-off" : "";
-            buffText += `💀【絶望の砂時計】<div class="eraser-switch-container" style="border-color:#ffaa00;">` +
+            buffText += `💀【絶望 of 呪いの砂時計】<div class="eraser-switch-container" style="border-color:#ffaa00;">` +
                         `<button class="eraser-switch-btn ${onClass}" onclick="toggleOneHpCurse(true)">ON</button>` +
                         `<button class="eraser-switch-btn ${offClass}" onclick="toggleOneHpCurse(false)">OFF</button>` +
                         `</div> `;
@@ -1257,7 +1270,10 @@
     }
 
     function drawGacha(times) {
-        const cost = (times === 10) ? 140 : 15;
+        let cost = 15;
+        if (times === 10) cost = 140;
+        if (times === 100) cost = 1350;
+
         if (coins < cost) return;
         coins -= cost;
         const homeMsg = document.getElementById("home-msg");
@@ -1317,10 +1333,10 @@
                 } 
                 else { shieldCount++; logText = "🛡️ 【鉄壁の盾】×1！"; }
             }
-            results.push(`${times === 10 ? (i+1) + "回目: " : ""}${logText}`);
+            results.push(`${times > 1 ? (i+1) + "回目: " : ""}${logText}`);
         }
         if (times === 1) { homeMsg.innerHTML = `🎰 <b>ガチャ結果:</b><br>${results[0]}`; logContainer.style.display = "none"; }
-        else { homeMsg.innerHTML = `🎰 <b>10連ガチャを実行しました！</b>`; logBox.innerHTML = results.join("<br>"); logContainer.style.display = "block"; logBox.scrollTop = 0; }
+        else { homeMsg.innerHTML = `🎰 <b>${times}連ガチャを実行しました！</b>`; logBox.innerHTML = results.join("<br>"); logContainer.style.display = "block"; logBox.scrollTop = 0; }
         updateHomeStatus(); saveToLocalStorage();
     }
 
@@ -1361,7 +1377,6 @@
         timerBar.classList.remove("speed-bar");
 
         if (isAwakeningMode) {
-            // 覚醒タイム用タイマー（6秒固定、減少ペナルティなし）
             currentMaxTime = 6.0;
             timeLeft = awakeningTimeLeft;
             isTimerRunning = true;
@@ -1382,7 +1397,7 @@
 
         let baseTime = 10.0;
         if (gameMode === 'secret') baseTime = 8.0;
-        if (gameMode === 'speed') baseTime = 5.0; // 神速の試練は基本5秒の超短期戦！
+        if (gameMode === 'speed') baseTime = 5.0; 
         
         let modifier = 1.0;
         if (hasExtendedTime) modifier *= 1.5;
@@ -1421,7 +1436,7 @@
     function checkCollectionLoss() {
         if (isShieldActiveThisTurn) return "";
         if (!ownedItems || ownedItems.length === 0) return "";
-        if (gameMode === 'speed') return ""; // スピードイベント中はコレクションをロストしない優しさ仕様
+        if (gameMode === 'speed') return ""; 
         let candidates = ownedItems.filter(id => id !== 49); 
         if (candidates.length === 0) return "";
         if (Math.random() < 0.30) {
@@ -1477,7 +1492,6 @@
         document.getElementById("game-screen").style.display = "block";
         document.getElementById("result-text").innerText = "";
         
-        // ゲージコンテナの表示制御
         const gContainer = document.getElementById("gauge-container");
         if (mode === 'speed') {
             gContainer.style.display = "block";
@@ -1493,9 +1507,20 @@
     }
 
     function triggerCheatEraserWin() {
-        document.getElementById("monster").innerText = "💥"; document.getElementById("question-text").innerText = "ERASING...";
-        coins += 530000; stage = maxStage; updateStatus();
-        if (Math.random() < 0.70) { hasCheatEraser = false; const idx = ownedItems.indexOf(49); if (idx > -1) ownedItems.splice(idx, 1); eraserJustLost = true; }
+        document.getElementById("monster").innerText = "💥"; 
+        document.getElementById("question-text").innerText = "ERASING...";
+        
+        coins += 1000; 
+        stage = maxStage; 
+        updateStatus();
+        
+        hasCheatEraser = false; 
+        const idx = ownedItems.indexOf(49); 
+        if (idx > -1) {
+            ownedItems.splice(idx, 1); 
+        }
+        eraserJustLost = true; 
+        
         setTimeout(() => { endGame(true); }, 1500);
     }
 
@@ -1516,7 +1541,7 @@
         if (hasDoubleCoins) txt += "🪙【金運2倍】 ";
         if (hasGachaWeapon && gameMode !== 'secret' && gameMode !== 'speed') txt += "⚔️【伝説の剣】 ";
         if (hasExtendedTime) txt += "⏳【時の砂時計】 ";
-        if (hasHalvedTime) txt += "<span style='color:#ff4a4a;'>⌛【呪い：時間半分】</span> ";
+        if (hasHalvedTime) txt += "<span style='color:#ff4a4a;'>⌛【時間半分呪い】</span> ";
         if (hasOneHpCurse && isOneHpCurseActive) txt += "<span style='color:#ff4a4a;'>💀【絶望：ミス時HP1】</span> ";
         if (isEventActive()) txt += "<span style='color:#4ecca3;'>✨【時限イベント】コイン2倍適用中！✨ </span>";
         document.getElementById("battle-buff-display").innerHTML = txt;
@@ -1542,20 +1567,18 @@
         coinMultiplier = 1;
 
         if (gameMode === 'speed' && isAwakeningMode) {
-            // 【覚醒モード】超高速フラッシュ暗算（超かんたんな1桁の足し引き）
             mBox.classList.add("awakening-bg");
             let a = Math.floor(Math.random() * 9) + 1;
             let b = Math.floor(Math.random() * 9) + 1;
             let op = Math.random() < 0.5 ? "+" : "-";
             if (op === "+") correctAnswer = a + b;
             else {
-                if (a < b) { let tmp = a; a = b; b = tmp; } // 必ず答えを正の数にして解きやすく
+                if (a < b) { let tmp = a; a = b; b = tmp; } 
                 correctAnswer = a - b;
             }
             document.getElementById("question-text").innerText = `${a} ${op} ${b} = ?`;
         }
         else if (gameMode === 'speed') {
-            // 【神速モード通常】スピードエネミー
             mBox.classList.add("speed-bg");
             let a = getRandNum(), b = getRandNum();
             let op = Math.random() < 0.5 ? "+" : "-";
@@ -1563,7 +1586,6 @@
             document.getElementById("question-text").innerText = `${formatNum(a)} ${op} ${formatNum(b)} = ?`;
         }
         else {
-            // 通常・ハード・シークレットの抽選ロジック
             const randEnemy = Math.random();
             if (randEnemy < 0.02) {
                 enemyType = 'boss'; coinMultiplier = 5; mBox.classList.add("boss-bg");
@@ -1666,20 +1688,19 @@
         for(let i=0; i<4; i++) document.getElementById(`btn-${i}`).disabled = true;
         updateBattleItemButtons();
 
-        // 正解時処理
         if (selectedAnswer === correctAnswer) {
-            let solveTime = currentMaxTime - timeLeft; // 解答にかかった時間
+            let solveTime = currentMaxTime - timeLeft; 
             let isSpeedClear = (solveTime <= 3.0);
 
             let ec = (gameMode === 'secret') ? 100 : (gameMode === 'hard' ? 15 : 10); 
             if (gameMode === 'speed') {
-                ec = isAwakeningMode ? 8 : 12; // 覚醒中はサクサク稼げる
-                if (isSpeedClear && !isAwakeningMode) ec *= 3; // スピードスターボーナス3倍ダメージ＆3倍コイン！
+                ec = isAwakeningMode ? 8 : 12; 
+                if (isSpeedClear && !isAwakeningMode) ec *= 3; 
             }
 
             ec *= coinMultiplier; 
             if (hasDoubleCoins) ec *= 2;
-            if (isEventActive()) ec *= 2; // 時限イベントによる2倍適用
+            if (isEventActive()) ec *= 2; 
             
             coins += ec;
             rText.className = "result-message success"; 
@@ -1691,9 +1712,8 @@
 
             rText.innerText = `${successPrefix}(💰+${ec})`;
 
-            // ゲージの処理（スピードイベント通常時のみ）
             if (gameMode === 'speed' && !isAwakeningMode) {
-                if (isSpeedClear) awakeningGauge += 34; // 3回連続電撃解答でMAX
+                if (isSpeedClear) awakeningGauge += 34; 
                 else awakeningGauge += 10;
                 if (awakeningGauge > 100) awakeningGauge = 100;
                 document.getElementById("gauge-bar").style.width = `${awakeningGauge}%`;
@@ -1704,12 +1724,10 @@
             }
             updateStatus();
 
-            // 終了判定
             if (stage > maxStage && !isAwakeningMode) { 
                 setTimeout(() => { endGame(true); }, 1200); return; 
             }
 
-            // 覚醒突入チェック
             if (gameMode === 'speed' && awakeningGauge >= 100 && !isAwakeningMode) {
                 setTimeout(() => { startAwakeningMode(); }, 1200);
             } else {
@@ -1717,9 +1735,7 @@
             }
 
         } else {
-            // 不正解時処理
             if (isAwakeningMode) {
-                // 覚醒モード中はノーペナルティで次の問題へ
                 rText.className = "result-message error";
                 rText.innerText = "❌ どんまい！次だ！";
                 setTimeout(() => { generateQuestion(); }, 400);
@@ -1761,7 +1777,7 @@
                 rBox.innerHTML = `🎉 【${nickname}】は見事に神速の試練を突破した！<br>脳が超活性化している！<br><br><button class='action-btn' onclick='returnToHome()'>拠点へ戻る</button>`;
             } else {
                 document.getElementById("monster").innerText = "🏆"; document.getElementById("question-text").innerText = "DUNGEON CLEAR!!";
-                let lostNotice = eraserJustLost ? `<br><span style="color:#ff4a4a; font-size:14px; font-weight:bold;">⚠️ バグ消しゴムは崩壊し、消滅した…</span>` : "";
+                let lostNotice = eraserJustLost ? `<br><span style="color:#ff4a4a; font-size:14px; font-weight:bold;">⚠️ バグ消しゴムは完全に崩壊し、消滅した…</span>` : "";
                 rBox.innerHTML = `🎉 【${nickname}】は見事にダンジョンをクリアした！${lostNotice}<br><br><button class='action-btn' onclick='returnToHome()'>拠点へ戻る</button>`;
             }
         } else {
